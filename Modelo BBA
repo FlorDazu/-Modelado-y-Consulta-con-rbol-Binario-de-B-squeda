@@ -1,0 +1,337 @@
+#include <fstream>
+#include <string>
+#include <vector>
+#include <limits>
+using namespace std;
+
+// ======================================
+// GENERADOR GLOBAL DE ID ÚNICO
+// ======================================
+int generadorID = 1;
+
+// ======================================
+// ESTRUCTURA DEL NODO
+// ======================================
+struct Nodo {
+    int id;
+    string nombre;
+    int nacimiento;
+    Nodo* izq;
+    Nodo* der;
+};
+
+// ======================================
+// ESTRUCTURA PARA MANEJAR VARIOS ÁRBOLES
+// ======================================
+struct ArbolFamiliar {
+    string apellido;
+    Nodo* raiz;
+};
+
+// ======================================
+// VALIDACIÓN DE NÚMEROS ENTEROS
+// ======================================
+int pedirNumero(string mensaje) {
+    int numero;
+    while (true) {
+        cout << mensaje;
+        if (cin >> numero) break;
+        cout << "\n? Error: ingrese solo números.\n";
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    }
+    return numero;
+}
+
+// ======================================
+// CREAR NODO CON ID ÚNICO
+// ======================================
+Nodo* crearNodo(string nombre, int nacimiento) {
+    Nodo* nuevo = new Nodo();
+    nuevo->id = generadorID++;
+    nuevo->nombre = nombre;
+    nuevo->nacimiento = nacimiento;
+    nuevo->izq = NULL;
+    nuevo->der = NULL;
+    return nuevo;
+}
+
+// ======================================
+// INSERTAR ORDENANDO POR AÑO
+// ======================================
+Nodo* insertar(Nodo* raiz, string nombre, int nacimiento, int& idGenerado) {
+    if (raiz == NULL) {
+        Nodo* nuevo = crearNodo(nombre, nacimiento);
+        idGenerado = nuevo->id;
+        return nuevo;
+    }
+
+    if (nacimiento < raiz->nacimiento)
+        raiz->izq = insertar(raiz->izq, nombre, nacimiento, idGenerado);
+    else if (nacimiento > raiz->nacimiento)
+        raiz->der = insertar(raiz->der, nombre, nacimiento, idGenerado);
+    else {
+        cout << "\n?? Ya existe una persona con ese año.\n";
+        idGenerado = -1;
+    }
+
+    return raiz;
+}
+
+// ======================================
+// BUSCAR POR AÑO
+// ======================================
+Nodo* buscar(Nodo* raiz, int nacimiento) {
+    if (raiz == NULL) return NULL;
+    if (raiz->nacimiento == nacimiento) return raiz;
+    if (nacimiento < raiz->nacimiento) return buscar(raiz->izq, nacimiento);
+    return buscar(raiz->der, nacimiento);
+}
+
+// ======================================
+// CONTAR HIJOS DEL NODO
+// ======================================
+int contarHijos(Nodo* nodo) {
+    int hijos = 0;
+    if (nodo->izq != NULL) hijos++;
+    if (nodo->der != NULL) hijos++;
+    return hijos;
+}
+
+// ======================================
+// BUSCAR EL MÍNIMO (para eliminar)
+// ======================================
+Nodo* minimo(Nodo* nodo) {
+    while (nodo->izq != NULL)
+        nodo = nodo->izq;
+    return nodo;
+}
+
+// ======================================
+// ELIMINAR NODO DEL ÁRBOL
+// ======================================
+Nodo* eliminar(Nodo* raiz, int nacimiento) {
+    if (raiz == NULL) return raiz;
+
+    if (nacimiento < raiz->nacimiento)
+        raiz->izq = eliminar(raiz->izq, nacimiento);
+    else if (nacimiento > raiz->nacimiento)
+        raiz->der = eliminar(raiz->der, nacimiento);
+    else {
+        if (raiz->izq == NULL) {
+            Nodo* temp = raiz->der;
+            delete raiz;
+            return temp;
+        }
+        else if (raiz->der == NULL) {
+            Nodo* temp = raiz->izq;
+            delete raiz;
+            return temp;
+        }
+
+        Nodo* temp = minimo(raiz->der);
+        raiz->nombre = temp->nombre;
+        raiz->id = temp->id;
+        raiz->nacimiento = temp->nacimiento;
+        raiz->der = eliminar(raiz->der, temp->nacimiento);
+    }
+    return raiz;
+}
+
+// ======================================
+// MOSTRAR ÁRBOL VISUAL
+// ======================================
+void mostrarGrafico(Nodo* raiz, int espacio = 0) {
+    if (raiz == NULL) return;
+    espacio += 8;
+    mostrarGrafico(raiz->der, espacio);
+
+    cout << endl;
+    for (int i = 8; i < espacio; i++)
+        cout << " ";
+    cout << raiz->nacimiento << "(" << raiz->id << ") - " << raiz->nombre << endl;
+
+    mostrarGrafico(raiz->izq, espacio);
+}
+
+// ======================================
+// RECORRIDOS
+// ======================================
+void inOrden(Nodo* raiz) {
+    if (raiz != NULL) {
+        inOrden(raiz->izq);
+        cout << raiz->id << " | " << raiz->nombre << " | " << raiz->nacimiento << endl;
+        inOrden(raiz->der);
+    }
+}
+
+void preOrden(Nodo* raiz) {
+    if (raiz != NULL) {
+        cout << raiz->id << " | " << raiz->nombre << " | " << raiz->nacimiento << endl;
+        preOrden(raiz->izq);
+        preOrden(raiz->der);
+    }
+}
+
+void postOrden(Nodo* raiz) {
+    if (raiz != NULL) {
+        postOrden(raiz->izq);
+        postOrden(raiz->der);
+        cout << raiz->id << " | " << raiz->nombre << " | " << raiz->nacimiento << endl;
+    }
+}
+
+// ======================================
+// GUARDAR EN ARCHIVO
+// ======================================
+void guardarEnArchivo(Nodo* raiz, ofstream& archivo) {
+    if (raiz != NULL) {
+        archivo << raiz->id << "," << raiz->nombre << "," << raiz->nacimiento << endl;
+        guardarEnArchivo(raiz->izq, archivo);
+        guardarEnArchivo(raiz->der, archivo);
+    }
+}
+
+// ======================================
+// SELECCIONAR ÁRBOL (apellido)
+// ======================================
+int seleccionarArbol(vector<ArbolFamiliar>& arboles) {
+    if (arboles.empty()) {
+        cout << "\n?? No hay árboles creados aún.\n";
+        return -1;
+    }
+
+    cout << "\n========= ÁRBOLES DISPONIBLES =========\n";
+    for (int i = 0; i < arboles.size(); i++)
+        cout << i + 1 << ". " << arboles[i].apellido << endl;
+
+    int opcion = pedirNumero("\nSeleccione un árbol: ");
+    if (opcion < 1 || opcion > arboles.size()) {
+        cout << "\n? Opción inválida.\n";
+        return -1;
+    }
+    return opcion - 1;
+}
+
+// ======================================
+// FUNCIÓN PRINCIPAL
+// ======================================
+int main() {
+    vector<ArbolFamiliar> arboles;
+    int opcion;
+
+    do {
+        cout << "\n========= MENU GENERAL =========\n";
+        cout << "1. Crear nuevo árbol familiar\n";
+        cout << "2. Seleccionar árbol para administrar\n";
+        cout << "3. Salir\n";
+        cout << "Seleccione: ";
+        opcion = pedirNumero("");
+
+        switch (opcion) {
+
+        case 1: {
+            cin.ignore();
+            ArbolFamiliar nuevo;
+            cout << "\nIngrese apellido del árbol familiar: ";
+            getline(cin, nuevo.apellido);
+            nuevo.raiz = NULL;
+            arboles.push_back(nuevo);
+            cout << "\n? Árbol familiar creado.\n";
+            break;
+        }
+
+        case 2: {
+            int idx = seleccionarArbol(arboles);
+            if (idx == -1) break;
+
+            int opcion2;
+            do {
+                cout << "\n==== MENÚ ÁRBOL: " << arboles[idx].apellido << " ====\n";
+                cout << "1. Insertar persona\n";
+                cout << "2. Buscar persona por año\n";
+                cout << "3. Eliminar persona por año\n";
+                cout << "4. Mostrar árbol visual\n";
+                cout << "5. Recorridos\n";
+                cout << "6. Guardar árbol en archivo\n";
+                cout << "7. Volver\n";
+                opcion2 = pedirNumero("Seleccione: ");
+
+                switch (opcion2) {
+
+                case 1: {
+                    cin.ignore();
+                    string nombre;
+                    cout << "\nNombre: ";
+                    getline(cin, nombre);
+
+                    int nacimiento = pedirNumero("Año de nacimiento: ");
+                    int idGenerado = -1;
+
+                    arboles[idx].raiz = insertar(arboles[idx].raiz, nombre, nacimiento, idGenerado);
+
+                    if (idGenerado != -1)
+                        cout << "\n? Insertado con ID único: " << idGenerado << endl;
+                    break;
+                }
+
+                case 2: {
+                    int nacimiento = pedirNumero("Año a buscar: ");
+                    Nodo* encontrado = buscar(arboles[idx].raiz, nacimiento);
+
+                    if (encontrado) {
+                        cout << "\n? Encontrado:";
+                        cout << "\nNombre: " << encontrado->nombre;
+                        cout << "\nID: " << encontrado->id;
+                        cout << "\nAño de nacimiento: " << encontrado->nacimiento;
+
+                        cout << "\n?? Hijos directos: " << contarHijos(encontrado) << endl;
+                    }
+                    else cout << "\n? No encontrado.\n";
+                    break;
+                }
+
+                case 3: {
+                    int nacimiento = pedirNumero("Año a eliminar: ");
+                    arboles[idx].raiz = eliminar(arboles[idx].raiz, nacimiento);
+                    cout << "\n? Nodo eliminado (si existía).\n";
+                    break;
+                }
+
+                case 4:
+                    mostrarGrafico(arboles[idx].raiz);
+                    break;
+
+                case 5:
+                    cout << "\nInOrden:\n";  inOrden(arboles[idx].raiz);
+                    cout << "\nPreOrden:\n"; preOrden(arboles[idx].raiz);
+                    cout << "\nPostOrden:\n"; postOrden(arboles[idx].raiz);
+                    break;
+
+                case 6: {
+    string nombreArchivo = arboles[idx].apellido + ".txt";
+    ofstream archivo(nombreArchivo.c_str()); // ? Compatible con Dev-C++
+    
+    guardarEnArchivo(arboles[idx].raiz, archivo);
+    archivo.close();
+
+    cout << "\n? Árbol guardado en: " << nombreArchivo << endl;
+    break;
+}
+
+
+                }
+            } while (opcion2 != 7);
+            break;
+        }
+
+        case 3:
+            cout << "\nSaliendo...\n";
+            break;
+
+        }
+
+    } while (opcion != 3);
+
+    return 0;
+}
