@@ -1,0 +1,357 @@
+#include<iostream>
+#include <fstream>  // Para manejo de archivos
+#include <string>   // Para manipulación de cadenas de texto
+#include <vector>   // Para manejar un contenedor dinámico de elementos (vectores)
+#include <limits>   // Para manejar límites en la entrada de datos
+using namespace std;
+
+// ======================================
+// GENERADOR GLOBAL DE ID ÚNICO
+// ======================================
+int generadorID = 1;  // Esta variable se incrementa con cada nuevo nodo, generando un ID único.
+
+
+// ======================================
+// ESTRUCTURA DEL NODO
+// ======================================
+// Estructura para representar a una persona en el árbol genealógico.
+struct Nodo {
+    int id;               // ID único de la persona
+    string nombre;        // Nombre de la persona
+    int nacimiento;       // Año de nacimiento de la persona
+    Nodo* izq;            // Puntero al hijo izquierdo (personas nacidas antes)
+    Nodo* der;            // Puntero al hijo derecho (personas nacidas después)
+};
+
+// ======================================
+// ESTRUCTURA PARA MANEJAR VARIOS ÁRBOLES
+// ======================================
+// Cada árbol familiar tiene un apellido y una raíz (primer nodo del árbol).
+struct ArbolFamiliar {
+    string apellido;      // Apellido del árbol familiar
+    Nodo* raiz;           // Raíz del árbol (primer nodo)
+};
+
+// ======================================
+// VALIDACIÓN DE NÚMEROS ENTEROS
+// ======================================
+// Función para pedir un número entero al usuario, asegurándose de que ingrese un valor válido.
+int pedirNumero(string mensaje) {
+    int numero;
+    while (true) {
+        cout << mensaje;
+        if (cin >> numero) break;  // Si el ingreso es correcto, salir del ciclo
+        cout << "\n? Error: ingrese solo números.\n";  // Si el ingreso es inválido
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');  // Limpiar el buffer de entrada
+    }
+    return numero;
+}
+
+// ======================================
+// CREAR NODO CON ID ÚNICO
+// ======================================
+// Función para crear un nuevo nodo (persona) con un nombre y año de nacimiento.
+Nodo* crearNodo(string nombre, int nacimiento) {
+    Nodo* nuevo = new Nodo();  // Crear un nuevo nodo
+    nuevo->id = generadorID++;  // Asignar un ID único incrementando el contador global
+    nuevo->nombre = nombre;     // Asignar el nombre
+    nuevo->nacimiento = nacimiento;  // Asignar el año de nacimiento
+    nuevo->izq = NULL;          // Inicialmente no tiene hijos izquierdo
+    nuevo->der = NULL;          // Inicialmente no tiene hijos derecho
+    return nuevo;  // Retornar el nuevo nodo
+}
+
+// ======================================
+// INSERTAR ORDENANDO POR AÑO
+// ======================================
+// Función para insertar un nuevo nodo en el árbol respetando el orden por año de nacimiento.
+Nodo* insertar(Nodo* raiz, string nombre, int nacimiento, int& idGenerado) {
+    if (raiz == NULL) {
+        Nodo* nuevo = crearNodo(nombre, nacimiento);
+        idGenerado = nuevo->id;  // Asignar el ID generado
+        return nuevo;  // Si el nodo está vacío, se inserta el nuevo nodo
+    }
+
+    // Si el año de nacimiento es menor, se inserta en el subárbol izquierdo
+    if (nacimiento < raiz->nacimiento)
+        raiz->izq = insertar(raiz->izq, nombre, nacimiento, idGenerado);
+    // Si el año de nacimiento es mayor, se inserta en el subárbol derecho
+    else if (nacimiento > raiz->nacimiento)
+        raiz->der = insertar(raiz->der, nombre, nacimiento, idGenerado);
+    else {
+        cout << "\n?? Ya existe una persona con ese año.\n";  // Si ya existe alguien con ese año
+        idGenerado = -1;
+    }
+
+    return raiz;  // Retorna la raíz del árbol después de la inserción
+}
+
+// ======================================
+// BUSCAR POR AÑO
+// ======================================
+// Función para buscar un nodo en el árbol por el año de nacimiento.
+Nodo* buscar(Nodo* raiz, int nacimiento) {
+    if (raiz == NULL) return NULL;  // Si el árbol está vacío, no se encuentra
+    if (raiz->nacimiento == nacimiento) return raiz;  // Si se encuentra el año, retornar el nodo
+    if (nacimiento < raiz->nacimiento) return buscar(raiz->izq, nacimiento);  // Buscar en el subárbol izquierdo
+    return buscar(raiz->der, nacimiento);  // Buscar en el subárbol derecho
+}
+
+// ======================================
+// CONTAR HIJOS DEL NODO
+// ======================================
+// Función para contar cuántos hijos directos tiene un nodo (izquierdo y derecho).
+int contarHijos(Nodo* nodo) {
+    int hijos = 0;
+    if (nodo->izq != NULL) hijos++;  // Si tiene hijo izquierdo
+    if (nodo->der != NULL) hijos++;  // Si tiene hijo derecho
+    return hijos;  // Retorna el número de hijos
+}
+
+// ======================================
+// BUSCAR EL MÍNIMO (para eliminar)
+// ======================================
+// Función para encontrar el nodo con el valor mínimo en el árbol, usado para eliminar.
+Nodo* minimo(Nodo* nodo) {
+    while (nodo->izq != NULL)  // Buscar el nodo más a la izquierda
+        nodo = nodo->izq;
+    return nodo;  // Retornar el nodo mínimo
+}
+
+// ======================================
+// ELIMINAR NODO DEL ÁRBOL
+// ======================================
+// Función para eliminar un nodo del árbol, manteniendo la estructura del árbol binario.
+Nodo* eliminar(Nodo* raiz, int nacimiento) {
+    if (raiz == NULL) return raiz;  // Si no se encuentra el nodo
+
+    if (nacimiento < raiz->nacimiento)  // Buscar en el subárbol izquierdo
+        raiz->izq = eliminar(raiz->izq, nacimiento);
+    else if (nacimiento > raiz->nacimiento)  // Buscar en el subárbol derecho
+        raiz->der = eliminar(raiz->der, nacimiento);
+    else {
+        // Si el nodo tiene uno o ningún hijo
+        if (raiz->izq == NULL) {
+            Nodo* temp = raiz->der;
+            delete raiz;
+            return temp;  // Eliminar el nodo y retornar el hijo derecho
+        }
+        else if (raiz->der == NULL) {
+            Nodo* temp = raiz->izq;
+            delete raiz;
+            return temp;  // Eliminar el nodo y retornar el hijo izquierdo
+        }
+
+        // Si el nodo tiene ambos hijos, encontrar el mínimo en el subárbol derecho
+        Nodo* temp = minimo(raiz->der);
+        raiz->nombre = temp->nombre;
+        raiz->id = temp->id;
+        raiz->nacimiento = temp->nacimiento;
+        raiz->der = eliminar(raiz->der, temp->nacimiento);  // Eliminar el mínimo encontrado
+    }
+    return raiz;  // Retornar la raíz modificada
+}
+
+// ======================================
+// MOSTRAR ÁRBOL VISUAL
+// ======================================
+// Función para mostrar el árbol de manera gráfica, con los nodos ordenados.
+void mostrarGrafico(Nodo* raiz, int espacio = 0) {
+    if (raiz == NULL) return;  // Si el árbol está vacío
+
+    espacio += 8;  // Aumentar el espacio para los niveles
+    mostrarGrafico(raiz->der, espacio);  // Mostrar el subárbol derecho
+
+    cout << endl;
+    for (int i = 8; i < espacio; i++)  // Mostrar espacios para el gráfico
+        cout << " ";
+    cout << raiz->nacimiento << "(" << raiz->id << ") - " << raiz->nombre << endl;  // Imprimir el nodo
+
+    mostrarGrafico(raiz->izq, espacio);  // Mostrar el subárbol izquierdo
+}
+
+// ======================================
+// RECORRIDOS
+// ======================================
+// Funciones de recorrido para recorrer el árbol de diferentes maneras (inorden, preorden, postorden).
+
+void inOrden(Nodo* raiz) {
+    if (raiz != NULL) {
+        inOrden(raiz->izq);  // Recorrer subárbol izquierdo
+        cout << raiz->id << " | " << raiz->nombre << " | " << raiz->nacimiento << endl;  // Mostrar el nodo
+        inOrden(raiz->der);  // Recorrer subárbol derecho
+    }
+}
+
+void preOrden(Nodo* raiz) {
+    if (raiz != NULL) {
+        cout << raiz->id << " | " << raiz->nombre << " | " << raiz->nacimiento << endl;  // Mostrar el nodo
+        preOrden(raiz->izq);  // Recorrer subárbol izquierdo
+        preOrden(raiz->der);  // Recorrer subárbol derecho
+    }
+}
+
+void postOrden(Nodo* raiz) {
+    if (raiz != NULL) {
+        postOrden(raiz->izq);  // Recorrer subárbol izquierdo
+        postOrden(raiz->der);  // Recorrer subárbol derecho
+        cout << raiz->id << " | " << raiz->nombre << " | " << raiz->nacimiento << endl;  // Mostrar el nodo
+    }
+}
+
+// ======================================
+// GUARDAR EN ARCHIVO
+// ======================================
+// Función para guardar todos los nodos del árbol en un archivo de texto.
+void guardarEnArchivo(Nodo* raiz, ofstream& archivo) {
+    if (raiz != NULL) {
+        archivo << raiz->id << "," << raiz->nombre << "," << raiz->nacimiento << endl;  // Escribir nodo en archivo
+        guardarEnArchivo(raiz->izq, archivo);  // Guardar subárbol izquierdo
+        guardarEnArchivo(raiz->der, archivo);  // Guardar subárbol derecho
+    }
+}
+
+// ======================================
+// SELECCIONAR ÁRBOL (apellido)
+// ======================================
+// Función para que el usuario seleccione un árbol familiar entre varios.
+int seleccionarArbol(vector<ArbolFamiliar>& arboles) {
+    if (arboles.empty()) {
+        cout << "\n?? No hay árboles creados aún.\n";
+        return -1;
+    }
+
+    cout << "\n========= ÁRBOLES DISPONIBLES =========\n";
+    for (int i = 0; i < arboles.size(); i++)
+        cout << i + 1 << ". " << arboles[i].apellido << endl;  // Mostrar todos los árboles
+
+    int opcion = pedirNumero("\nSeleccione un árbol: ");
+    if (opcion < 1 || opcion > arboles.size()) {
+        cout << "\n? Opción inválida.\n";
+        return -1;
+    }
+    return opcion - 1;  // Retornar el índice del árbol seleccionado
+}
+
+// ======================================
+// FUNCIÓN PRINCIPAL
+// ======================================
+// Función principal que contiene el menú para el usuario y las opciones de administrar árboles familiares.
+int main() {
+    vector<ArbolFamiliar> arboles;  // Vector para manejar varios árboles familiares
+    int opcion;
+
+    do {
+        cout << "\n========= MENU GENERAL =========\n";
+        cout << "1. Crear nuevo árbol familiar\n";
+        cout << "2. Seleccionar árbol para administrar\n";
+        cout << "3. Salir\n";
+        cout << "Seleccione: ";
+        opcion = pedirNumero("");
+
+        switch (opcion) {
+
+        case 1: {
+            cin.ignore();
+            ArbolFamiliar nuevo;  // Crear un nuevo árbol familiar
+            cout << "\nIngrese apellido del árbol familiar: ";
+            getline(cin, nuevo.apellido);  // Pedir apellido
+            nuevo.raiz = NULL;  // Inicializar el árbol vacío
+            arboles.push_back(nuevo);  // Agregarlo al vector de árboles
+            cout << "\n? Árbol familiar creado.\n";
+            break;
+        }
+
+        case 2: {
+            int idx = seleccionarArbol(arboles);  // Seleccionar un árbol para administrar
+            if (idx == -1) break;
+
+            int opcion2;
+            do {
+                cout << "\n==== MENÚ ÁRBOL: " << arboles[idx].apellido << " ====\n";
+                cout << "1. Insertar persona\n";
+                cout << "2. Buscar persona por año\n";
+                cout << "3. Eliminar persona por año\n";
+                cout << "4. Mostrar árbol visual\n";
+                cout << "5. Recorridos\n";
+                cout << "6. Guardar árbol en archivo\n";
+                cout << "7. Volver\n";
+                opcion2 = pedirNumero("Seleccione: ");
+
+                switch (opcion2) {
+
+                case 1: {
+                    cin.ignore();
+                    string nombre;
+                    cout << "\nNombre: ";
+                    getline(cin, nombre);
+
+                    int nacimiento = pedirNumero("Año de nacimiento: ");
+                    int idGenerado = -1;
+
+                    arboles[idx].raiz = insertar(arboles[idx].raiz, nombre, nacimiento, idGenerado);
+
+                    if (idGenerado != -1)
+                        cout << "\n? Insertado con ID único: " << idGenerado << endl;
+                    break;
+                }
+
+                case 2: {
+                    int nacimiento = pedirNumero("Año a buscar: ");
+                    Nodo* encontrado = buscar(arboles[idx].raiz, nacimiento);
+
+                    if (encontrado) {
+                        cout << "\n? Encontrado:";
+                        cout << "\nNombre: " << encontrado->nombre;
+                        cout << "\nID: " << encontrado->id;
+                        cout << "\nAño de nacimiento: " << encontrado->nacimiento;
+
+                        cout << "\n?? Hijos directos: " << contarHijos(encontrado) << endl;
+                    }
+                    else cout << "\n? No encontrado.\n";
+                    break;
+                }
+
+                case 3: {
+                    int nacimiento = pedirNumero("Año a eliminar: ");
+                    arboles[idx].raiz = eliminar(arboles[idx].raiz, nacimiento);
+                    cout << "\n? Nodo eliminado (si existía).\n";
+                    break;
+                }
+
+                case 4:
+                    mostrarGrafico(arboles[idx].raiz);  // Mostrar el árbol visualmente
+                    break;
+
+                case 5:
+                    cout << "\nInOrden:\n";  inOrden(arboles[idx].raiz);  // Mostrar el recorrido en orden
+                    cout << "\nPreOrden:\n"; preOrden(arboles[idx].raiz);  // Mostrar el recorrido preorden
+                    cout << "\nPostOrden:\n"; postOrden(arboles[idx].raiz);  // Mostrar el recorrido postorden
+                    break;
+
+                case 6: {
+                    string nombreArchivo = arboles[idx].apellido + ".txt";
+                    ofstream archivo(nombreArchivo.c_str()); // Guardar el árbol en un archivo
+                    guardarEnArchivo(arboles[idx].raiz, archivo);
+                    archivo.close();
+
+                    cout << "\n? Árbol guardado en: " << nombreArchivo << endl;
+                    break;
+                }
+                }
+            } while (opcion2 != 7);  // Regresar al menú del árbol
+
+            break;
+        }
+
+        case 3:
+            cout << "\nSaliendo...\n";  // Salir del programa
+            break;
+
+        }
+
+    } while (opcion != 3);  // Continuar hasta que se elija salir
+
+    return 0;
+}
